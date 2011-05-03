@@ -53,8 +53,12 @@ public class RabbitMqProducer extends DefaultProducer {
 
 	public void process(Exchange exchange) throws Exception {
         Message message = sender.createMessage();
+
+        message.getProperties().setHeaders(exchange.getIn().getHeaders());
         message.setBody(exchange.getIn().getBody(byte[].class));
+
         LOG.debug("Sending message to exchange {}", exchangeName);
+
         sender.send(message);
     }
 }

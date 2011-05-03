@@ -13,13 +13,13 @@ import org.slf4j.LoggerFactory;
 import com.rabbitmq.messagepatterns.unicast.ReceivedMessage;
 
 public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
-    
+
     private static transient Logger LOG = LoggerFactory.getLogger(RabbitMqConsumer.class);
 
     private String queueName;
-    
+
     private String exchangeName;
-    
+
     private MessageReceiver receiver;
 
     private java.util.concurrent.ExecutorService executor;
@@ -28,9 +28,9 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
             String uri) throws Exception {
         super(endpoint, processor);
         parseUri(uri);
-        receiver = new MessageReceiver(endpoint.getConnection(), queueName, exchangeName);        
+        receiver = new MessageReceiver(endpoint.getConnection(), queueName, exchangeName);
     }
-    
+
     public void parseUri(String uri) {
         String[] split = uri.split("[:|/]");
         if(split.length != 5) {
@@ -43,7 +43,7 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
     @Override
     public void start() throws Exception {
         LOG.debug("Starting RabbitMQConsumer on queue {} bound to exchange {}...", queueName, exchangeName);
-        
+
         super.start();
         receiver.start();
 
@@ -51,21 +51,21 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
         executor = getEndpoint().getCamelContext().getExecutorServiceStrategy()
                 .newSingleThreadExecutor(this, getEndpoint().getEndpointUri());
         executor.execute(this);
-        
+
         LOG.debug("RabbitMQConsumer stopped.");
     }
 
     @Override
     public void stop() throws Exception {
         LOG.debug("Stopping RabbitMQConsumer...");
-        
+
         if (executor != null) {
             executor.shutdownNow();
             executor = null;
         }
 
         super.doStop();
-        
+
         LOG.debug("RabbitMQConsumer stopped.");
     }
 
@@ -81,14 +81,18 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
         while (executor != null && !executor.isShutdown()) {
             ReceivedMessage message = receiver.receive();
             if(message != null) {
-                LOG.debug("Recieved message from queue {}", queueName);
+                LOG.debug("Received message from queue {}", queueName);
 
                 Exchange exchange = getEndpoint().createExchange();
 
                 Message msg = new DefaultMessage();
+
                 msg.setBody(message.getBody());
+                msg.setHeaders(message.getProperties().getHeaders());
                 exchange.setIn(msg);
+
                 getProcessor().process(exchange);
+
                 receiver.ack(message);
             }
         }
