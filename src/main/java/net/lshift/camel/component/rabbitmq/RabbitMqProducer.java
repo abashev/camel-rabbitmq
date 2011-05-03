@@ -16,32 +16,32 @@ public class RabbitMqProducer extends DefaultProducer {
     private static transient Logger LOG = LoggerFactory.getLogger(RabbitMqProducer.class);
 
     private String exchangeName;
-    
+
     private MessageSender sender;
-	
+
 	public RabbitMqProducer(RabbitMqEndpoint endpoint, String uri) throws Exception {
 		super(endpoint);
 		parseUri(uri);
 		sender = new MessageSender(endpoint.getConnection(), exchangeName);
 	}
-	
+
 	protected void parseUri(String uri) {
 	    String[] split = uri.split("[:|/]");
 	    if(split.length != 4) {
 	        throw new IllegalArgumentException("Invalid URI - must contain an exchange: " + uri);
 	    }
-	    
+
 	    exchangeName = split[3];
 	}
-	
+
 	@Override
 	public void start() throws Exception {
 	    LOG.info("Starting RabbitMqProducer on exchange {}...", exchangeName);
 		super.start();
 		sender.start();
-		LOG.info("RabbitMqProducer stopped.");
+		LOG.info("RabbitMqProducer started.");
 	}
-	
+
 	@Override
 	public void stop() throws IOException {
 	    LOG.info("Stopping RabbitMqProducer...");
@@ -56,5 +56,5 @@ public class RabbitMqProducer extends DefaultProducer {
         message.setBody(exchange.getIn().getBody(byte[].class));
         LOG.debug("Sending message to exchange {}", exchangeName);
         sender.send(message);
-    }	
+    }
 }
