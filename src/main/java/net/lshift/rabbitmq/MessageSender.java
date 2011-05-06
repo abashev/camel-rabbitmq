@@ -1,12 +1,14 @@
 package net.lshift.rabbitmq;
 
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.messagepatterns.unicast.*;
-
 import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.rabbitmq.messagepatterns.unicast.ChannelSetupListener;
+import com.rabbitmq.messagepatterns.unicast.Connector;
+import com.rabbitmq.messagepatterns.unicast.Message;
+import com.rabbitmq.messagepatterns.unicast.MessageSentListener;
 
 /**
  * Thin wrapper around the Java Message Patterns sender implementation so that
@@ -14,29 +16,17 @@ import org.slf4j.LoggerFactory;
  * Unicast abstractions that are not needed here.
  */
 public class MessageSender {
-    
-    private static transient Logger LOG = LoggerFactory.getLogger(MessageSender.class);
-    
-    public static final String EXCHANGE_TYPE = "fanout";
-    
-    public static final boolean AUTO_DELETE = false;
-    
-    public static final boolean DURABLE = false;
-    
+    private final Logger LOG = LoggerFactory.getLogger(MessageSender.class);
 
     protected SenderImpl sender = new SenderImpl();
 
-    public MessageSender(Connector connector, final String exchangeName) throws Exception {
+    public MessageSender(Connector connector, String exchangeName) throws Exception {
         sender.setConnector(connector);
         sender.setExchangeName(exchangeName);
-        
-        addSenderSetupListener(new ChannelSetupListener() {
-            public void channelSetup(Channel channel) throws IOException {
-                channel.exchangeDeclare(exchangeName, EXCHANGE_TYPE, DURABLE, AUTO_DELETE, null);
-            }
-        });
+
+        addSenderSetupListener(new DefaultChannelSetupHandler(exchangeName, null));
     }
-    
+
     public Connector getConnector() {
         return sender.getConnector();
     }
@@ -98,14 +88,14 @@ public class MessageSender {
                 throw new RuntimeException(e);
             }
         }
-        
+
         sender.close();
         LOG.debug("MessageSender stoppped.");
     }
 
     public Message createMessage() {
         Message msg = sender.createMessage();
-        
+
         // Set empty routing key as we want 1:N fanout delivery by default
         msg.setTo("");
         return msg;

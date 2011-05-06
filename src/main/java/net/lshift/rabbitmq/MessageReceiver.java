@@ -1,12 +1,10 @@
 package net.lshift.rabbitmq;
 
-
 import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.rabbitmq.client.Channel;
 import com.rabbitmq.messagepatterns.unicast.ChannelSetupListener;
 import com.rabbitmq.messagepatterns.unicast.Connector;
 import com.rabbitmq.messagepatterns.unicast.ReceivedMessage;
@@ -17,32 +15,17 @@ import com.rabbitmq.messagepatterns.unicast.ReceivedMessage;
  * Unicast abstractions that are not needed here.
  */
 public class MessageReceiver {
+    private final Logger LOG = LoggerFactory.getLogger(MessageReceiver.class);
 
-    private static transient Logger LOG = LoggerFactory.getLogger(MessageReceiver.class);
-    
-    public static final boolean EXCLUSIVE = true;
-    
-    public static final boolean AUTO_DELETE = false;
-    
-    public static final boolean DURABLE = false;
-    
     protected ReceiverImpl receiver = new ReceiverImpl();
 
-    public MessageReceiver(Connector connector, final String queueName, final String exchangeName) throws Exception {
+    public MessageReceiver(Connector connector, String queueName, String exchangeName) throws Exception {
         receiver.setConnector(connector);
         receiver.setQueueName(queueName);
-        
-        addChannelSetupListener(new ChannelSetupListener() {
-            public void channelSetup(Channel channel) throws IOException {
-                channel.queueDeclare(queueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
-                
-                // TODO: Error handling
-                channel.exchangeDeclarePassive(exchangeName);
-                channel.queueBind(queueName, exchangeName, "");
-            }
-        });
+
+        addChannelSetupListener(new DefaultChannelSetupHandler(exchangeName, queueName));
     }
-    
+
     public Connector getConnector() {
         return receiver.getConnector();
     }
@@ -88,9 +71,9 @@ public class MessageReceiver {
                 throw new RuntimeException(e);
             }
         }
-       
+
         receiver.close();
-        
+
         LOG.debug("MessageReceiver stopped.");
     }
 
