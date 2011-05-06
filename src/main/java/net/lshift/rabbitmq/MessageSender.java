@@ -1,10 +1,14 @@
 package net.lshift.rabbitmq;
 
+import static net.lshift.rabbitmq.DefaultChannelSetupHandler.DURABLE;
+
 import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.messagepatterns.unicast.ChannelSetupListener;
 import com.rabbitmq.messagepatterns.unicast.Connector;
 import com.rabbitmq.messagepatterns.unicast.Message;
@@ -73,24 +77,35 @@ public class MessageSender {
 
     public void start() throws Exception {
         LOG.debug("Starting MessageSender for exchange {}...", getExchangeName());
+
         sender.init();
-        LOG.debug("MessageSender started.");
     }
 
     public void stop() throws IOException {
-        LOG.debug("Stopping MessageSender for exchange {}...", getExchangeName());
+        if (!DURABLE) {
+            try {
+                sender.deleteExchange();
+            } catch (Exception e) {
+                LOG.warn("Unable to delete exchange " + getExchangeName(), e);
+            }
+        }
+
         try {
-            sender.deleteExchange();
-        } catch(Exception e) {
-            if(e instanceof IOException) {
+            sender.close();
+        } catch (AlreadyClosedException e) {
+        } catch (ShutdownSignalException e) {
+            if (!e.isInitiatedByApplication()) {
+                throw e;
+            }
+        } catch (Exception e) {
+            if (e instanceof IOException) {
                 throw (IOException) e;
             } else {
                 throw new RuntimeException(e);
             }
         }
 
-        sender.close();
-        LOG.debug("MessageSender stoppped.");
+        LOG.debug("MessageSender stopped for exchange {}...", getExchangeName());
     }
 
     public Message createMessage() {

@@ -12,12 +12,10 @@ import org.slf4j.LoggerFactory;
 import com.rabbitmq.messagepatterns.unicast.Message;
 
 public class RabbitMqProducer extends DefaultProducer {
-
-    private static transient Logger LOG = LoggerFactory.getLogger(RabbitMqProducer.class);
+    private final Logger LOG = LoggerFactory.getLogger(RabbitMqProducer.class);
 
     private String exchangeName;
-
-    private MessageSender sender;
+    private final MessageSender sender;
 
 	public RabbitMqProducer(RabbitMqEndpoint endpoint, String uri) throws Exception {
 		super(endpoint);
@@ -37,18 +35,30 @@ public class RabbitMqProducer extends DefaultProducer {
 	@Override
 	public void start() throws Exception {
 	    LOG.info("Starting RabbitMqProducer on exchange {}...", exchangeName);
-		super.start();
-		sender.start();
-		LOG.info("RabbitMqProducer started.");
+
+	    super.start();
+	    sender.start();
 	}
 
 	@Override
 	public void stop() throws IOException {
-	    LOG.info("Stopping RabbitMqProducer...");
-		if(sender != null) {
-			sender.stop();
-		}
-		LOG.info("RabbitMqProducer stopped.");
+	    LOG.info("Stopping RabbitMRqProducer on exchange {}...", exchangeName);
+
+	    try {
+            sender.stop();
+        } catch (Exception e) {
+            log.warn("Unable to stop RabbitMRqProducer on exchange " + exchangeName, e);
+        }
+
+	    try {
+            super.stop();
+        } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new IOException(e);
+            }
+        }
 	}
 
 	public void process(Exchange exchange) throws Exception {

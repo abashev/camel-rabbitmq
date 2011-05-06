@@ -16,10 +16,10 @@ import com.rabbitmq.messagepatterns.unicast.ChannelSetupListener;
  * @version $Id$
  */
 class DefaultChannelSetupHandler implements ChannelSetupListener {
-    private static final String EXCHANGE_TYPE = "fanout";
-    private static final boolean AUTO_DELETE = false;
-    private static final boolean DURABLE = false;
-    private static final boolean EXCLUSIVE = true;
+    static final String EXCHANGE_TYPE = "fanout";
+    static final boolean AUTO_DELETE = false;
+    static final boolean DURABLE = true;
+    static final boolean EXCLUSIVE = false;
 
     private final String exchange;
     private final String queue;

@@ -1,10 +1,14 @@
 package net.lshift.rabbitmq;
 
+import static net.lshift.rabbitmq.DefaultChannelSetupHandler.DURABLE;
+
 import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.messagepatterns.unicast.ChannelSetupListener;
 import com.rabbitmq.messagepatterns.unicast.Connector;
 import com.rabbitmq.messagepatterns.unicast.ReceivedMessage;
@@ -56,25 +60,35 @@ public class MessageReceiver {
 
     public void start() throws Exception {
         LOG.debug("Starting MessageReceiver on queue {}...", getQueueName());
+
         receiver.init();
-        LOG.debug("MessageReceiver started.");
     }
 
     public void stop() throws IOException {
-        LOG.debug("Stopping MessageReceiver on queue {}...", getQueueName());
+        if (!DURABLE) {
+            try {
+                receiver.deleteQueue();
+            } catch(Exception e) {
+                LOG.warn("Unable to delete queue " + getQueueName(), e);
+            }
+        }
+
         try {
-            receiver.deleteQueue();
-        } catch(Exception e) {
-            if(e instanceof IOException) {
+            receiver.close();
+        } catch (AlreadyClosedException e) {
+        } catch (ShutdownSignalException e) {
+            if (!e.isInitiatedByApplication()) {
+                throw e;
+            }
+        } catch (Exception e) {
+            if (e instanceof IOException) {
                 throw (IOException) e;
             } else {
                 throw new RuntimeException(e);
             }
         }
 
-        receiver.close();
-
-        LOG.debug("MessageReceiver stopped.");
+        LOG.debug("Stopped MessageReceiver on queue {}...", getQueueName());
     }
 
     public ReceivedMessage receive() throws Exception {

@@ -1,5 +1,8 @@
 package net.lshift.camel.component.rabbitmq;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import net.lshift.rabbitmq.MessageReceiver;
 
 import org.apache.camel.Exchange;
@@ -13,16 +16,12 @@ import org.slf4j.LoggerFactory;
 import com.rabbitmq.messagepatterns.unicast.ReceivedMessage;
 
 public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
-
-    private static transient Logger LOG = LoggerFactory.getLogger(RabbitMqConsumer.class);
+    private final Logger LOG = LoggerFactory.getLogger(RabbitMqConsumer.class);
 
     private String queueName;
-
     private String exchangeName;
-
     private MessageReceiver receiver;
-
-    private java.util.concurrent.ExecutorService executor;
+    private ExecutorService executor;
 
     public RabbitMqConsumer(RabbitMqEndpoint endpoint, Processor processor,
             String uri) throws Exception {
@@ -51,22 +50,18 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
         executor = getEndpoint().getCamelContext().getExecutorServiceStrategy()
                 .newSingleThreadExecutor(this, getEndpoint().getEndpointUri());
         executor.execute(this);
-
-        LOG.debug("RabbitMQConsumer stopped.");
     }
 
     @Override
     public void stop() throws Exception {
-        LOG.debug("Stopping RabbitMQConsumer...");
+        LOG.debug("Stopping RabbitMQConsumer on queue {} bound to exchange {}...", queueName, exchangeName);
 
         if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
+            shutdownAndAwaitTermination(executor);
         }
 
-        super.doStop();
-
-        LOG.debug("RabbitMQConsumer stopped.");
+        receiver.stop();
+        super.stop();
     }
 
     public void run() {
@@ -95,6 +90,25 @@ public class RabbitMqConsumer extends DefaultConsumer implements Runnable {
 
                 receiver.ack(message);
             }
+        }
+    }
+
+    void shutdownAndAwaitTermination(ExecutorService pool) {
+        try {
+            pool.shutdown();
+            pool.shutdownNow();
+
+            if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+                LOG.warn(
+                        "ExecutionPool for [queue={},exchange={}] did not terminate",
+                        queueName, exchangeName
+                );
+            }
+        } catch (InterruptedException ie) {
+            // (Re-)Cancel if current thread also interrupted
+            pool.shutdownNow();
+            // Preserve interrupt status
+            Thread.currentThread().interrupt();
         }
     }
 }
